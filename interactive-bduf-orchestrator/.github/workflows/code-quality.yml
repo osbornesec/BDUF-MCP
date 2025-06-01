@@ -1,0 +1,264 @@
+name: Code Quality Automation
+
+on:
+  push:
+    branches: [ main, develop, 'feature/*' ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # Automatic code formatting and linting
+  auto-format-and-lint:
+    name: Auto Format & Lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Prettier formatting
+        run: |
+          npm run format:write
+          echo "FORMATTED_FILES=$(git diff --name-only)" >> $GITHUB_ENV
+
+      - name: Run ESLint with auto-fix
+        run: |
+          npm run lint:fix
+          echo "LINTED_FILES=$(git diff --name-only)" >> $GITHUB_ENV
+
+      - name: Generate/Update TSDoc comments
+        run: |
+          npm run docs:generate
+          echo "DOCS_FILES=$(git diff --name-only)" >> $GITHUB_ENV
+
+      - name: Check for changes
+        id: verify-changed-files
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+            git status --porcelain >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.verify-changed-files.outputs.has_changes == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "🤖 Auto-fix: Format code, lint fixes, and update docs
+
+          - Applied Prettier formatting
+          - Fixed ESLint issues
+          - Updated/generated TSDoc comments
+          
+          Files changed:
+          ${{ steps.verify-changed-files.outputs.changed_files }}"
+          git push
+
+      - name: Comment on PR with changes
+        if: github.event_name == 'pull_request' && steps.verify-changed-files.outputs.has_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🤖 Automatic Code Quality Improvements
+
+              I've automatically applied the following improvements to your code:
+
+              - ✅ **Prettier formatting** - Code has been formatted for consistency
+              - ✅ **ESLint auto-fixes** - Fixed linting issues that could be automatically resolved
+              - ✅ **TSDoc generation** - Added/updated documentation comments
+
+              ### Files Modified:
+              \`\`\`
+              ${{ steps.verify-changed-files.outputs.changed_files }}
+              \`\`\`
+
+              Please review the changes and address any remaining manual fixes needed.`
+            })
+
+  # Manual lint check for remaining issues
+  lint-check:
+    name: Lint Check (Remaining Issues)
+    runs-on: ubuntu-latest
+    needs: auto-format-and-lint
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint (check only)
+        run: npm run lint:check
+
+      - name: Run TypeScript type checking
+        run: npm run type-check
+
+      - name: Check Prettier formatting
+        run: npm run format:check
+
+      - name: Validate documentation completeness
+        run: npm run docs:validate
+
+  # Generate comprehensive documentation
+  generate-docs:
+    name: Generate Documentation
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate API documentation
+        run: npm run docs:api
+
+      - name: Generate type documentation
+        run: npm run docs:types
+
+      - name: Generate architecture documentation
+        run: npm run docs:architecture
+
+      - name: Commit documentation updates
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if [ -n "$(git status --porcelain docs/)" ]; then
+            git add docs/
+            git commit -m "📚 Update auto-generated documentation"
+            git push
+          fi
+
+  # Code quality metrics and reporting
+  quality-metrics:
+    name: Quality Metrics
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run code complexity analysis
+        run: npm run analyze:complexity
+
+      - name: Run dependency analysis
+        run: npm run analyze:deps
+
+      - name: Run bundle size analysis
+        run: npm run analyze:bundle
+
+      - name: Generate quality report
+        run: npm run report:quality
+
+      - name: Upload quality reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: quality-reports
+          path: |
+            reports/
+            coverage/
+          retention-days: 30
+
+      - name: Comment quality metrics on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Read quality metrics (assuming they're generated as JSON)
+            let metrics = {};
+            try {
+              metrics = JSON.parse(fs.readFileSync('reports/quality-metrics.json', 'utf8'));
+            } catch (e) {
+              console.log('No quality metrics file found');
+              return;
+            }
+            
+            const comment = `## 📊 Code Quality Metrics
+
+            | Metric | Value | Status |
+            |--------|-------|--------|
+            | Lines of Code | ${metrics.loc || 'N/A'} | ${metrics.loc > 10000 ? '⚠️' : '✅'} |
+            | Cyclomatic Complexity | ${metrics.complexity || 'N/A'} | ${metrics.complexity > 10 ? '⚠️' : '✅'} |
+            | Test Coverage | ${metrics.coverage || 'N/A'}% | ${metrics.coverage < 90 ? '⚠️' : '✅'} |
+            | Bundle Size | ${metrics.bundleSize || 'N/A'} | ${metrics.bundleSizeChange > 10 ? '⚠️' : '✅'} |
+            | Dependencies | ${metrics.dependencies || 'N/A'} | ✅ |
+            | Vulnerabilities | ${metrics.vulnerabilities || 0} | ${metrics.vulnerabilities > 0 ? '⚠️' : '✅'} |
+
+            ### 🎯 Quality Gates
+            - ${metrics.coverage >= 90 ? '✅' : '❌'} Test coverage ≥ 90%
+            - ${metrics.complexity <= 10 ? '✅' : '❌'} Complexity ≤ 10
+            - ${metrics.vulnerabilities === 0 ? '✅' : '❌'} No security vulnerabilities
+            - ${metrics.bundleSizeChange <= 10 ? '✅' : '❌'} Bundle size increase ≤ 10%
+
+            ${metrics.coverage < 90 ? '\n⚠️ **Action Required**: Test coverage is below 90%. Please add more tests.' : ''}
+            ${metrics.complexity > 10 ? '\n⚠️ **Action Required**: Code complexity is high. Consider refactoring.' : ''}
+            ${metrics.vulnerabilities > 0 ? '\n⚠️ **Action Required**: Security vulnerabilities found. Please fix them.' : ''}
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            })

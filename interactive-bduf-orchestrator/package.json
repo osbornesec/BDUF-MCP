@@ -1,0 +1,255 @@
+{
+  "name": "interactive-bduf-orchestrator",
+  "version": "1.0.0",
+  "description": "Interactive Big Design Up Front (BDUF) Orchestrator MCP Server - An enterprise-grade system for comprehensive project analysis, architecture generation, and collaborative development workflows",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "nodemon --exec tsx src/index.ts",
+    "dev:watch": "tsx watch src/index.ts",
+    "build": "npm run clean && npm run build:types && npm run build:js",
+    "build:js": "esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --sourcemap --minify",
+    "build:types": "tsc --emitDeclarationOnly --outDir dist",
+    "build:dev": "esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --sourcemap",
+    "clean": "rimraf dist coverage docs/api .nyc_output",
+    "start": "node dist/index.js",
+    "start:prod": "NODE_ENV=production node dist/index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:unit": "jest --testMatch='**/__tests__/**/*.test.ts' --testPathIgnorePatterns='**/integration/**'",
+    "test:integration": "jest --testMatch='**/integration/**/*.test.ts'",
+    "test:e2e": "playwright test",
+    "test:smoke": "jest --testMatch='**/smoke/**/*.test.ts'",
+    "test:health": "curl -f http://localhost:3000/health || exit 1",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "lint:check": "eslint src/**/*.ts --max-warnings 0",
+    "lint:ci": "eslint src/**/*.ts --format json --output-file reports/eslint-report.json",
+    "format": "prettier --write src/**/*.ts tests/**/*.ts docs/**/*.md *.md",
+    "format:check": "prettier --check src/**/*.ts tests/**/*.ts docs/**/*.md *.md",
+    "format:write": "prettier --write .",
+    "type-check": "tsc --noEmit",
+    "type-check:watch": "tsc --noEmit --watch",
+    "docs:generate": "typedoc",
+    "docs:validate": "typedoc --validation.notExported --validation.invalidLink --validation.notDocumented",
+    "docs:auto-generate": "node scripts/generate-jsdoc.js",
+    "docs:coverage-check": "node scripts/check-doc-coverage.js",
+    "docs:validate-completeness": "node scripts/validate-docs.js",
+    "docs:link-check": "markdown-link-check docs/**/*.md",
+    "docs:validate-examples": "node scripts/validate-code-examples.js",
+    "docs:dependency-graph": "madge --image docs/architecture/dependency-graph.svg src/index.ts",
+    "docs:type-diagrams": "node scripts/generate-type-diagrams.js",
+    "docs:api-flows": "node scripts/generate-api-flows.js",
+    "docs:update-readme": "node scripts/update-readme-metrics.js",
+    "docs:build-site": "node scripts/build-docs-site.js",
+    "analyze:complexity": "complexity-report -o reports/complexity-report.html src/",
+    "analyze:deps": "madge --circular --extensions ts src/",
+    "analyze:bundle": "esbuild-visualizer --metadata=dist/meta.json --filename=reports/bundle-analysis.html",
+    "analyze:size": "size-limit",
+    "report:quality": "node scripts/generate-quality-report.js",
+    "security:audit": "npm audit --audit-level=moderate",
+    "security:scan": "snyk test",
+    "security:fix": "npm audit fix",
+    "deps:check": "depcheck",
+    "deps:update": "npm-check-updates",
+    "deps:install-updates": "npm-check-updates -u && npm install",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:prod": "prisma migrate deploy",
+    "db:migrate:test": "DATABASE_URL=$DATABASE_TEST_URL prisma migrate deploy",
+    "db:generate": "prisma generate",
+    "db:seed": "tsx scripts/seed-database.ts",
+    "db:reset": "prisma migrate reset --force",
+    "docker:build": "docker build -t interactive-bduf-orchestrator .",
+    "docker:run": "docker run -p 3000:3000 interactive-bduf-orchestrator",
+    "docker:compose": "docker-compose up -d",
+    "docker:compose:down": "docker-compose down",
+    "performance:benchmark": "autocannon -c 100 -d 30 http://localhost:3000",
+    "performance:profile": "clinic doctor -- node dist/index.js",
+    "performance:flame": "clinic flame -- node dist/index.js",
+    "performance:bubbleprof": "clinic bubbleprof -- node dist/index.js",
+    "mcp:validate": "node scripts/validate-mcp-tools.js",
+    "mcp:test-tools": "node scripts/test-mcp-tools.js",
+    "health-check": "node scripts/health-check.js",
+    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
+    "version:patch": "npm version patch && npm run changelog",
+    "version:minor": "npm version minor && npm run changelog",
+    "version:major": "npm version major && npm run changelog",
+    "prepare": "husky install",
+    "precommit": "lint-staged",
+    "prepush": "npm run type-check && npm run test:unit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "express": "^4.18.2",
+    "winston": "^3.11.0",
+    "prisma": "^5.7.0",
+    "@prisma/client": "^5.7.0",
+    "zod": "^3.22.4",
+    "helmet": "^7.1.0",
+    "cors": "^2.8.5",
+    "compression": "^1.7.4",
+    "rate-limiter-flexible": "^4.0.1",
+    "dotenv": "^16.3.1",
+    "socket.io": "^4.7.4",
+    "redis": "^4.6.10",
+    "bcrypt": "^5.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "axios": "^1.6.2",
+    "pg": "^8.11.3",
+    "bull": "^4.12.2",
+    "node-cron": "^3.0.3",
+    "uuid": "^9.0.1",
+    "lodash": "^4.17.21",
+    "moment": "^2.29.4",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/compression": "^1.7.5",
+    "@types/bcrypt": "^5.0.2",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/pg": "^8.10.9",
+    "@types/uuid": "^9.0.7",
+    "@types/lodash": "^4.14.202",
+    "@types/multer": "^1.4.11",
+    "@types/jest": "^29.5.8",
+    "typescript": "^5.3.2",
+    "tsx": "^4.6.0",
+    "esbuild": "^0.19.8",
+    "rimraf": "^5.0.5",
+    "nodemon": "^3.0.2",
+    "jest": "^29.7.0",
+    "@jest/globals": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "playwright": "^1.40.0",
+    "@typescript-eslint/parser": "^6.13.1",
+    "@typescript-eslint/eslint-plugin": "^6.13.1",
+    "eslint": "^8.54.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-jest": "^27.6.0",
+    "eslint-plugin-security": "^1.7.1",
+    "eslint-plugin-import": "^2.29.0",
+    "prettier": "^3.1.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.0",
+    "typedoc": "^0.25.4",
+    "typedoc-plugin-markdown": "^3.17.1",
+    "madge": "^6.1.0",
+    "complexity-report": "^2.0.0-alpha",
+    "esbuild-visualizer": "^0.4.1",
+    "size-limit": "^11.0.1",
+    "@size-limit/preset-node": "^11.0.1",
+    "autocannon": "^7.12.0",
+    "clinic": "^12.1.0",
+    "snyk": "^1.1248.0",
+    "depcheck": "^1.4.7",
+    "npm-check-updates": "^16.14.11",
+    "conventional-changelog-cli": "^4.1.0",
+    "markdown-link-check": "^3.11.2",
+    "@sentry/node": "^7.81.1",
+    "prom-client": "^15.0.0"
+  },
+  "peerDependencies": {
+    "typescript": ">=5.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "bduf",
+    "big-design-up-front",
+    "orchestrator",
+    "project-management",
+    "architecture",
+    "requirements-analysis",
+    "collaboration",
+    "typescript",
+    "nodejs",
+    "enterprise"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/osbornesec/BDUF-MCP.git"
+  },
+  "bugs": {
+    "url": "https://github.com/osbornesec/BDUF-MCP/issues"
+  },
+  "homepage": "https://github.com/osbornesec/BDUF-MCP#readme",
+  "author": {
+    "name": "BDUF Development Team",
+    "email": "dev@bduf-orchestrator.com"
+  },
+  "license": "MIT",
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{md,json,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/src",
+      "<rootDir>/tests"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.test.ts",
+      "**/*.test.ts"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/**/*.d.ts",
+      "!src/**/index.ts",
+      "!src/scripts/**/*"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html",
+      "json"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 90,
+        "functions": 90,
+        "lines": 90,
+        "statements": 90
+      }
+    },
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.ts"
+    ],
+    "moduleNameMapping": {
+      "^@/(.*)$": "<rootDir>/src/$1"
+    },
+    "testTimeout": 30000
+  },
+  "size-limit": [
+    {
+      "path": "dist/index.js",
+      "limit": "10 MB"
+    }
+  ],
+  "volta": {
+    "node": "20.10.0",
+    "npm": "10.2.0"
+  }
+}

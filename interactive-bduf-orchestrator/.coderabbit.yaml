@@ -1,0 +1,246 @@
+# CodeRabbit Configuration for Interactive BDUF Orchestrator MCP Server
+# This configuration optimizes CodeRabbit for our TypeScript/Node.js enterprise project
+
+# General settings
+reviews:
+  # Request a review every time a PR is opened or updated
+  request_changes: ask
+  # Auto-approve PRs that only touch documentation or tests (after review)
+  auto_approve: false
+  # Enable early feedback on draft PRs
+  draft_pr_review: true
+
+# Review preferences
+review_settings:
+  # Focus on these areas during code review
+  focus_areas:
+    - "Code quality and maintainability"
+    - "TypeScript type safety"
+    - "Security vulnerabilities"
+    - "Performance implications"
+    - "Error handling patterns"
+    - "API design consistency"
+    - "Documentation completeness"
+    - "Test coverage"
+    - "MCP protocol compliance"
+
+  # Review thoroughness
+  thoroughness: "high"
+  
+  # Enable advanced features
+  enable_code_suggestions: true
+  enable_security_scan: true
+  enable_performance_hints: true
+
+# File and directory patterns
+include_patterns:
+  - "src/**/*.ts"
+  - "src/**/*.js"
+  - "tests/**/*.ts"
+  - "tests/**/*.js"
+  - "docs/**/*.md"
+  - "*.md"
+  - "*.json"
+  - "*.yml"
+  - "*.yaml"
+  - ".github/**/*"
+
+exclude_patterns:
+  - "node_modules/**"
+  - "dist/**"
+  - "build/**"
+  - "coverage/**"
+  - "*.min.js"
+  - "*.d.ts"
+  - ".env*"
+  - "logs/**"
+  - "temp/**"
+  - "tmp/**"
+
+# Language-specific settings
+language_settings:
+  typescript:
+    # Strict type checking
+    enforce_strict_types: true
+    # Check for proper error handling
+    check_error_handling: true
+    # Validate async/await patterns
+    check_async_patterns: true
+    # Ensure proper documentation
+    require_documentation: true
+    # Check for performance anti-patterns
+    performance_checks: true
+
+  javascript:
+    # Apply similar standards to JS files
+    enforce_best_practices: true
+    check_security_patterns: true
+
+# Custom rules for our project
+custom_rules:
+  # MCP Server specific rules
+  mcp_compliance:
+    - "Ensure MCP tools follow proper schema validation"
+    - "Check for proper error responses in MCP handlers"
+    - "Validate resource URI patterns"
+    - "Ensure capability declarations are accurate"
+
+  # Enterprise patterns
+  enterprise_standards:
+    - "Require comprehensive error handling"
+    - "Ensure proper logging with context"
+    - "Check for input validation"
+    - "Validate database transaction patterns"
+    - "Ensure proper authentication checks"
+
+  # Code quality
+  quality_standards:
+    - "Functions should be focused and single-purpose"
+    - "Complex logic should be well-documented"
+    - "Magic numbers should be constants"
+    - "Error messages should be user-friendly"
+    - "API responses should be consistent"
+
+# Review templates
+review_templates:
+  # Security-focused reviews
+  security:
+    checklist:
+      - "Are user inputs properly validated?"
+      - "Are authentication checks in place?"
+      - "Are sensitive data properly handled?"
+      - "Are SQL injection vulnerabilities prevented?"
+      - "Are API rate limits implemented?"
+
+  # Performance reviews
+  performance:
+    checklist:
+      - "Are database queries optimized?"
+      - "Are expensive operations cached?"
+      - "Are large datasets paginated?"
+      - "Are async operations properly handled?"
+      - "Are memory leaks prevented?"
+
+  # Architecture reviews
+  architecture:
+    checklist:
+      - "Does the code follow SOLID principles?"
+      - "Are dependencies properly injected?"
+      - "Is the separation of concerns maintained?"
+      - "Are abstractions appropriate?"
+      - "Is the error handling consistent?"
+
+# Integration settings
+integrations:
+  # GitHub integration
+  github:
+    # Auto-assign reviewers based on file changes
+    auto_assign_reviewers: true
+    # Create detailed PR descriptions
+    enhance_pr_descriptions: true
+    # Add labels based on review findings
+    auto_label: true
+
+  # Slack notifications (if configured)
+  slack:
+    notify_on_review: true
+    notify_on_approval: true
+    notify_on_security_issues: true
+
+# Learning and adaptation
+learning_settings:
+  # Learn from team preferences
+  adapt_to_team_style: true
+  # Learn from approved suggestions
+  learn_from_feedback: true
+  # Improve suggestions over time
+  continuous_improvement: true
+
+# Comment style preferences
+comment_preferences:
+  # Be constructive and educational
+  tone: "constructive"
+  # Provide examples when suggesting changes
+  include_examples: true
+  # Explain the reasoning behind suggestions
+  explain_reasoning: true
+  # Link to relevant documentation
+  include_references: true
+
+# Severity levels
+severity_levels:
+  critical:
+    - "Security vulnerabilities"
+    - "Data corruption risks"
+    - "Memory leaks"
+    - "Authentication bypasses"
+
+  high:
+    - "Performance issues"
+    - "Type safety violations"
+    - "Error handling gaps"
+    - "API contract violations"
+
+  medium:
+    - "Code style inconsistencies"
+    - "Documentation gaps"
+    - "Test coverage issues"
+    - "Maintainability concerns"
+
+  low:
+    - "Minor style improvements"
+    - "Optional optimizations"
+    - "Suggestion comments"
+    - "Documentation enhancements"
+
+# Project-specific context
+project_context:
+  description: "Interactive BDUF Orchestrator MCP Server - An enterprise-grade TypeScript/Node.js application implementing the Model Context Protocol for Big Design Up Front methodology orchestration."
+  
+  key_technologies:
+    - "TypeScript"
+    - "Node.js"
+    - "Model Context Protocol (MCP)"
+    - "PostgreSQL"
+    - "Redis" 
+    - "Express.js"
+    - "WebSockets"
+    - "Jest"
+    - "ESLint"
+    - "Prettier"
+
+  architecture_patterns:
+    - "Microservices"
+    - "Event-driven architecture"
+    - "Repository pattern"
+    - "Dependency injection"
+    - "CQRS (Command Query Responsibility Segregation)"
+
+  business_domain:
+    - "Project management"
+    - "Requirements analysis"
+    - "Architecture design"
+    - "Collaboration workflows"
+    - "Approval processes"
+
+# Review priorities
+review_priorities:
+  1: "Security and authentication"
+  2: "Data integrity and transactions"
+  3: "Error handling and resilience"
+  4: "Performance and scalability"
+  5: "Type safety and validation"
+  6: "Code maintainability"
+  7: "Documentation quality"
+  8: "Test coverage"
+
+# Special instructions
+special_instructions:
+  - "Pay special attention to MCP protocol compliance and tool implementations"
+  - "Ensure all database operations are wrapped in proper error handling"
+  - "Validate that async operations follow our established patterns"
+  - "Check for proper TypeScript usage and avoid 'any' types"
+  - "Ensure all public APIs have comprehensive JSDoc documentation"
+  - "Verify that security middleware is properly applied to sensitive endpoints"
+  - "Review approval workflow logic for business rule compliance"
+  - "Check WebSocket implementations for proper connection management"

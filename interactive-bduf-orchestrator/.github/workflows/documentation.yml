@@ -1,0 +1,263 @@
+name: Documentation Generation
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'src/**/*.ts'
+      - 'docs/**/*'
+      - 'README.md'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'src/**/*.ts'
+      - 'docs/**/*'
+      - 'README.md'
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # Generate TSDoc documentation
+  generate-api-docs:
+    name: Generate API Documentation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate TypeDoc documentation
+        run: |
+          npm run docs:generate
+          npm run docs:validate
+
+      - name: Generate JSDoc comments for undocumented functions
+        run: |
+          # Custom script to add missing JSDoc comments
+          npm run docs:auto-generate
+
+      - name: Check for documentation changes
+        id: check-docs
+        run: |
+          if [ -n "$(git status --porcelain docs/)" ] || [ -n "$(git status --porcelain src/)" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+            git status --porcelain docs/ src/ >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit documentation updates
+        if: steps.check-docs.outputs.has_changes == 'true' && github.ref == 'refs/heads/main'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/ src/
+          git commit -m "📚 Auto-update documentation
+
+          - Generated/updated API documentation
+          - Added missing JSDoc comments
+          - Updated documentation coverage
+          
+          Files changed:
+          ${{ steps.check-docs.outputs.changed_files }}"
+          git push
+
+      - name: Upload documentation artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: documentation
+          path: |
+            docs/
+            coverage/lcov-report/
+          retention-days: 30
+
+      - name: Comment on PR with documentation status
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Read documentation metrics
+            let docCoverage = 'N/A';
+            try {
+              const stats = fs.readFileSync('docs/coverage-stats.json', 'utf8');
+              const metrics = JSON.parse(stats);
+              docCoverage = `${metrics.documented}/${metrics.total} (${metrics.percentage}%)`;
+            } catch (e) {
+              console.log('No documentation coverage stats found');
+            }
+            
+            const comment = `## 📚 Documentation Status
+
+            | Metric | Value |
+            |--------|-------|
+            | API Documentation Coverage | ${docCoverage} |
+            | Documentation Generated | ✅ |
+            | JSDoc Validation | ✅ |
+            | Auto-generated Comments | ${{ steps.check-docs.outputs.has_changes == 'true' ? '✅ Added' : '➖ None needed' }} |
+
+            ### 📖 Documentation Preview
+            - [API Documentation](${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}/artifacts)
+            - [Coverage Report](${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}/artifacts)
+
+            ${steps.check-docs.outputs.has_changes == 'true' ? 
+              '\n✨ **Auto-improvements applied**: Missing JSDoc comments have been automatically generated.' : 
+              '\n✅ **Documentation is up to date**: No missing documentation detected.'
+            }`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # Validate documentation completeness
+  validate-docs:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check documentation coverage
+        run: |
+          npm run docs:coverage-check
+          
+      - name: Validate JSDoc completeness
+        run: |
+          npm run docs:validate-completeness
+
+      - name: Check for broken links in documentation
+        run: |
+          npm run docs:link-check
+
+      - name: Validate code examples in docs
+        run: |
+          npm run docs:validate-examples
+
+  # Generate architectural documentation
+  generate-architecture-docs:
+    name: Generate Architecture Documentation
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate dependency graphs
+        run: |
+          npm run docs:dependency-graph
+
+      - name: Generate type diagrams
+        run: |
+          npm run docs:type-diagrams
+
+      - name: Generate API flow diagrams
+        run: |
+          npm run docs:api-flows
+
+      - name: Update README.md with metrics
+        run: |
+          npm run docs:update-readme
+
+      - name: Commit architecture documentation
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if [ -n "$(git status --porcelain docs/architecture/ README.md)" ]; then
+            git add docs/architecture/ README.md
+            git commit -m "🏗️ Update architecture documentation
+
+            - Generated dependency graphs
+            - Updated type diagrams  
+            - Refreshed API flow documentation
+            - Updated README metrics"
+            git push
+          fi
+
+  # Deploy documentation to GitHub Pages
+  deploy-docs:
+    name: Deploy Documentation
+    runs-on: ubuntu-latest
+    needs: [generate-api-docs, validate-docs]
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      pages: write
+      id-token: write
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build documentation site
+        run: |
+          npm run docs:build-site
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: docs/site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
