@@ -37,9 +37,9 @@ jobs:
       - name: Validate PR description
         run: |
           echo "🔍 Validating PR description..."
-          PR_BODY="${{ github.event.pull_request.body }}"
+          PR_BODY_LENGTH=$(echo '${{ github.event.pull_request.body }}' | wc -c)
           
-          if [[ ${#PR_BODY} -lt 50 ]]; then
+          if [[ $PR_BODY_LENGTH -lt 50 ]]; then
             echo "⚠️ PR description is quite short. Consider adding more details about:"
             echo "  - What changes were made"
             echo "  - Why the changes were necessary" 
