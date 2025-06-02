@@ -1,0 +1,24 @@
+name: "CodeQL Configuration"
+
+disable-default-queries: false
+
+queries:
+  - uses: security-and-quality
+  - uses: security-extended
+
+paths-ignore:
+  - node_modules/
+  - dist/
+  - build/
+  - coverage/
+  - "**/*.min.js"
+  - "**/*.bundle.js"
+
+paths:
+  - interactive-bduf-orchestrator/src/
+  - interactive-bduf-orchestrator/scripts/
+
+# Custom query packs for enhanced security scanning
+packs:
+  - codeql/javascript-queries:Security
+  - codeql/javascript-queries:Quality
