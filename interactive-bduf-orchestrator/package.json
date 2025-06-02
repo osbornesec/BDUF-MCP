@@ -80,7 +80,6 @@
     "version:patch": "npm version patch && npm run changelog",
     "version:minor": "npm version minor && npm run changelog",
     "version:major": "npm version major && npm run changelog",
-    "prepare": "husky install",
     "precommit": "lint-staged",
     "prepush": "npm run type-check && npm run test:unit"
   },
@@ -145,8 +144,6 @@
     "madge": "^6.1.0",
     "complexity-report": "^2.0.0-alpha",
     "esbuild-visualizer": "^0.4.1",
-    "size-limit": "^11.0.1",
-    "@size-limit/preset-node": "^11.0.1",
     "autocannon": "^7.12.0",
     "clinic": "^12.1.0",
     "snyk": "^1.1248.0",
@@ -237,17 +234,11 @@
     "setupFilesAfterEnv": [
       "<rootDir>/tests/setup.ts"
     ],
-    "moduleNameMapping": {
+    "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/src/$1"
     },
     "testTimeout": 30000
   },
-  "size-limit": [
-    {
-      "path": "dist/index.js",
-      "limit": "10 MB"
-    }
-  ],
   "volta": {
     "node": "20.10.0",
     "npm": "10.2.0"
