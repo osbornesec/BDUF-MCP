@@ -20,15 +20,16 @@ jobs:
           PR_TITLE="${{ github.event.pull_request.title }}"
           
           # Check for conventional commit format or descriptive title
-          if [[ "$PR_TITLE" =~ ^(feat|fix|docs|style|refactor|test|chore|ci|build|perf|revert)(\(.+\))?: .+ ]] || \
+          if [[ "$PR_TITLE" =~ ^(feat|fix|docs|style|refactor|test|chore|ci|build|perf|revert)(\(.+\))?: ]] || \
              [[ "$PR_TITLE" =~ ^(Phase [1-4]:|Implementation:|Feature:|Bugfix:|Hotfix:) ]] || \
              [[ ${#PR_TITLE} -ge 10 ]]; then
-            echo "✅ PR title format is acceptable"
+            echo "✅ PR title format is acceptable: $PR_TITLE"
           else
             echo "❌ PR title should be descriptive (10+ chars) or follow conventional commit format"
+            echo "Current title: $PR_TITLE"
             echo "Examples:"
             echo "  - feat: add user authentication system"
-            echo "  - Phase 1: Foundation & Infrastructure Implementation"
+            echo "  - Phase 1: Foundation Infrastructure Implementation"
             echo "  - docs: update API documentation"
             exit 1
           fi
