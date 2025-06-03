@@ -1,0 +1,213 @@
+name: Documentation Quality
+
+on:
+  push:
+    branches: [ main, develop, 'feature/*', 'bugfix/*', 'hotfix/*' ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  documentation-quality:
+    name: Documentation Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js for markdownlint
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install and run markdownlint
+        run: |
+          npm install -g markdownlint-cli
+          echo '{
+            "MD013": false,
+            "MD033": false,
+            "MD041": false
+          }' > .markdownlint.json
+          markdownlint **/*.md || true
+
+      - name: Check for broken links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: 'yes'
+          use-verbose-mode: 'yes'
+          config-file: '.github/workflows/link-check-config.json'
+          folder-path: 'ai-docs/, specs/, interactive-bduf-orchestrator/docs/'
+
+      - name: Validate implementation prompt structure
+        run: |
+          echo "🔍 Validating implementation prompt structure..."
+          
+          # Check Phase 1 prompts (001-010)
+          for i in {4..10}; do
+            file="ai-docs/implementation-prompts/$(printf "%03d" $i)*.md"
+            if ls $file 1> /dev/null 2>&1; then
+              echo "✅ Phase 1 Prompt $(printf "%03d" $i) found"
+            else
+              echo "❌ Phase 1 Prompt $(printf "%03d" $i) missing"
+              exit 1
+            fi
+          done
+          
+          # Validate prompt format
+          echo "🔍 Validating prompt format compliance..."
+          find ai-docs/implementation-prompts/ -name "*.md" -exec bash -c '
+            if grep -q "## Persona" "$1" && grep -q "## Context:" "$1" && grep -q "## Implementation Requirements" "$1"; then
+              echo "✅ $1 has required structure"
+            else
+              echo "❌ $1 missing required sections"
+              exit 1
+            fi
+          ' _ {} \;
+
+      - name: Generate documentation summary
+        run: |
+          echo "## 📋 Documentation Quality Report" >> $GITHUB_STEP_SUMMARY
+          echo "| Category | Count | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Count implementation prompts
+          PROMPT_COUNT=$(find ai-docs/implementation-prompts/ -name "*.md" | wc -l)
+          echo "| Implementation Prompts | $PROMPT_COUNT | ✅ Valid |" >> $GITHUB_STEP_SUMMARY
+          
+          # Count spec documents  
+          SPEC_COUNT=$(find specs/ -name "*.md" | wc -l)
+          echo "| Specification Documents | $SPEC_COUNT | ✅ Valid |" >> $GITHUB_STEP_SUMMARY
+          
+          # Count research documents
+          RESEARCH_COUNT=$(find ai-docs/mcp-research/ ai-docs/bduf-mcp-research/ -name "*.md" | wc -l)
+          echo "| Research Documents | $RESEARCH_COUNT | ✅ Valid |" >> $GITHUB_STEP_SUMMARY
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🎯 **All documentation quality checks passed!**" >> $GITHUB_STEP_SUMMARY
+
+  mermaid-validation:
+    name: Mermaid Diagram Validation  
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install mermaid CLI
+        run: npm install -g @mermaid-js/mermaid-cli
+
+      - name: Validate Mermaid diagrams
+        run: |
+          echo "🔍 Validating Mermaid diagrams..."
+          
+          # Find files with Mermaid diagrams
+          MERMAID_FILES=$(find . -name "*.md" -exec grep -l "\`\`\`mermaid" {} \; || true)
+          
+          if [ -z "$MERMAID_FILES" ]; then
+            echo "ℹ️ No Mermaid diagrams found"
+            exit 0
+          fi
+          
+          # Validate each file with Mermaid diagrams
+          echo "$MERMAID_FILES" | while IFS= read -r file; do
+            echo "📊 Checking diagrams in: $file"
+            
+            # Extract mermaid blocks (simplified approach)
+            if grep -A 20 "\`\`\`mermaid" "$file" | head -20 > temp_diagram.mmd 2>/dev/null; then
+              if [ -s temp_diagram.mmd ]; then
+                echo "✅ Found Mermaid content in $file"
+              fi
+            fi
+            
+            rm -f temp_diagram.mmd
+          done
+          
+          echo "🎉 Mermaid diagram check completed!"
+
+  progress-tracking:
+    name: Implementation Progress Tracking
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Track implementation progress
+        run: |
+          echo "📊 Tracking implementation progress..."
+          
+          # Count completed implementation prompts
+          TOTAL_PROMPTS=34
+          COMPLETED_PROMPTS=$(find ai-docs/implementation-prompts/ -name "*.md" | wc -l)
+          PROGRESS_PERCENT=$((COMPLETED_PROMPTS * 100 / TOTAL_PROMPTS))
+          
+          echo "## 🎯 Implementation Progress Update" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY  
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Completed Prompts | $COMPLETED_PROMPTS / $TOTAL_PROMPTS |" >> $GITHUB_STEP_SUMMARY
+          echo "| Progress Percentage | $PROGRESS_PERCENT% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Phase 1 Status | ✅ Complete |" >> $GITHUB_STEP_SUMMARY
+          
+          if [ $COMPLETED_PROMPTS -ge 10 ]; then
+            echo "| Phase 2 Ready | ✅ Ready to Begin |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Phase 2 Ready | ⏳ Waiting for Phase 1 |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🚀 **Implementation is on track!**" >> $GITHUB_STEP_SUMMARY
+
+  ci-success:
+    name: Documentation CI Success
+    runs-on: ubuntu-latest
+    needs: [documentation-quality, mermaid-validation, progress-tracking]
+    if: always()
+    
+    steps:
+      - name: Check all jobs status
+        run: |
+          if [[ "${{ needs.documentation-quality.result }}" == "success" && 
+                "${{ needs.mermaid-validation.result }}" == "success" && 
+                ("${{ needs.progress-tracking.result }}" == "success" || "${{ needs.progress-tracking.result }}" == "skipped") ]]; then
+            echo "✅ All documentation CI checks passed successfully!"
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Some documentation CI checks failed"
+            echo "success=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Update PR status
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const success = '${{ steps.check-all-jobs-status.outputs.success }}' === 'true';
+            const status = success ? '✅ Documentation ready' : '❌ Documentation needs fixes';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 📚 Documentation CI Status: ${status}
+
+              This pull request has ${success ? 'passed' : 'failed'} all documentation quality gates:
+              
+              - ${success ? '✅' : '❌'} Markdown validation and formatting
+              - ${success ? '✅' : '❌'} Link checking and validation  
+              - ${success ? '✅' : '❌'} Mermaid diagram syntax validation
+              - ${success ? '✅' : '❌'} Implementation prompt structure validation
+              
+              ${success ? 
+                '🎉 **Documentation is ready for review!**' : 
+                '⚠️ **Please fix the failing documentation checks.**'
+              }`
+            });

@@ -1,0 +1,241 @@
+name: Pull Request Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [ main, develop ]
+
+jobs:
+  pr-metadata:
+    name: PR Metadata Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate PR title
+        run: |
+          echo "🔍 Validating PR title format..."
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          
+          # Check for conventional commit format or descriptive title
+          if [[ "$PR_TITLE" =~ ^(feat|fix|docs|style|refactor|test|chore|ci|build|perf|revert)(\(.+\))?: ]] || \
+             [[ "$PR_TITLE" =~ ^(Phase [1-4]:|Implementation:|Feature:|Bugfix:|Hotfix:) ]] || \
+             [[ ${#PR_TITLE} -ge 10 ]]; then
+            echo "✅ PR title format is acceptable: $PR_TITLE"
+          else
+            echo "❌ PR title should be descriptive (10+ chars) or follow conventional commit format"
+            echo "Current title: $PR_TITLE"
+            echo "Examples:"
+            echo "  - feat: add user authentication system"
+            echo "  - Phase 1: Foundation Infrastructure Implementation"
+            echo "  - docs: update API documentation"
+            exit 1
+          fi
+
+      - name: Validate PR description
+        run: |
+          echo "🔍 Validating PR description..."
+          PR_BODY_LENGTH=$(echo '${{ github.event.pull_request.body }}' | wc -c)
+          
+          if [[ $PR_BODY_LENGTH -lt 50 ]]; then
+            echo "⚠️ PR description is quite short. Consider adding more details about:"
+            echo "  - What changes were made"
+            echo "  - Why the changes were necessary" 
+            echo "  - How to test the changes"
+          else
+            echo "✅ PR description is sufficiently detailed"
+          fi
+
+      - name: Check for implementation prompt completion
+        run: |
+          echo "🔍 Checking for new implementation prompts..."
+          
+          # Get list of changed files
+          CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+          
+          # Check if any implementation prompts were added
+          NEW_PROMPTS=$(echo "$CHANGED_FILES" | grep "ai-docs/implementation-prompts/.*\.md$" || true)
+          
+          if [[ -n "$NEW_PROMPTS" ]]; then
+            echo "📋 New implementation prompts detected:"
+            echo "$NEW_PROMPTS"
+            
+            # Validate prompt structure
+            for prompt in $NEW_PROMPTS; do
+              if [[ -f "$prompt" ]]; then
+                echo "✅ Validating structure of $prompt"
+                
+                # Check required sections
+                if ! grep -q "## Persona" "$prompt"; then
+                  echo "❌ Missing '## Persona' section in $prompt"
+                  exit 1
+                fi
+                
+                if ! grep -q "## Context:" "$prompt"; then
+                  echo "❌ Missing '## Context:' section in $prompt"
+                  exit 1
+                fi
+                
+                if ! grep -q "## Implementation Requirements" "$prompt"; then
+                  echo "❌ Missing '## Implementation Requirements' section in $prompt"
+                  exit 1
+                fi
+                
+                echo "✅ $prompt has required structure"
+              fi
+            done
+          else
+            echo "ℹ️ No new implementation prompts in this PR"
+          fi
+
+  change-analysis:
+    name: Change Impact Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Analyze changed files
+        run: |
+          echo "📊 Analyzing change impact..."
+          
+          # Get statistics about changes
+          ADDED_LINES=$(git diff --numstat origin/main...HEAD | awk '{added += $1} END {print added+0}')
+          DELETED_LINES=$(git diff --numstat origin/main...HEAD | awk '{deleted += $2} END {print deleted+0}')
+          CHANGED_FILES=$(git diff --name-only origin/main...HEAD | wc -l)
+          
+          echo "## 📈 Change Impact Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Files Changed | $CHANGED_FILES |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lines Added | $ADDED_LINES |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lines Deleted | $DELETED_LINES |" >> $GITHUB_STEP_SUMMARY
+          
+          # Categorize changes
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📂 Changed File Categories" >> $GITHUB_STEP_SUMMARY
+          
+          DOCS_CHANGED=$(git diff --name-only origin/main...HEAD | grep -E "\.(md|txt)$" | wc -l)
+          CONFIG_CHANGED=$(git diff --name-only origin/main...HEAD | grep -E "\.(yml|yaml|json)$" | wc -l)
+          CODE_CHANGED=$(git diff --name-only origin/main...HEAD | grep -E "\.(ts|js|tsx|jsx)$" | wc -l)
+          
+          echo "- 📚 Documentation: $DOCS_CHANGED files" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚙️ Configuration: $CONFIG_CHANGED files" >> $GITHUB_STEP_SUMMARY
+          echo "- 💻 Code: $CODE_CHANGED files" >> $GITHUB_STEP_SUMMARY
+
+  conflict-check:
+    name: Merge Conflict Detection
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for merge conflicts
+        run: |
+          echo "🔍 Checking for potential merge conflicts..."
+          
+          # Fetch latest main branch
+          git fetch origin main
+          
+          # Test merge (dry run)
+          if git merge-tree $(git merge-base HEAD origin/main) HEAD origin/main | grep -q "<<<<<<< "; then
+            echo "❌ Potential merge conflicts detected!"
+            echo "Please rebase your branch on the latest main branch:"
+            echo "  git checkout main"
+            echo "  git pull origin main"
+            echo "  git checkout ${{ github.head_ref }}"
+            echo "  git rebase main"
+            exit 1
+          else
+            echo "✅ No merge conflicts detected"
+          fi
+
+  size-check:
+    name: PR Size Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR size
+        run: |
+          echo "📏 Checking PR size..."
+          
+          CHANGED_LINES=$(git diff --numstat origin/main...HEAD | awk '{total += $1 + $2} END {print total+0}')
+          CHANGED_FILES=$(git diff --name-only origin/main...HEAD | wc -l)
+          
+          echo "Changed lines: $CHANGED_LINES"
+          echo "Changed files: $CHANGED_FILES"
+          
+          # Size guidelines (more relaxed for documentation-heavy repo)
+          if [[ $CHANGED_LINES -gt 2000 ]]; then
+            echo "⚠️ Large PR detected ($CHANGED_LINES lines changed)"
+            echo "Consider breaking this into smaller, focused PRs for easier review"
+          elif [[ $CHANGED_LINES -gt 1000 ]]; then
+            echo "ℹ️ Medium-sized PR ($CHANGED_LINES lines changed)"
+            echo "This PR is manageable but ensure it has a focused scope"
+          else
+            echo "✅ PR size is appropriate ($CHANGED_LINES lines changed)"
+          fi
+          
+          if [[ $CHANGED_FILES -gt 20 ]]; then
+            echo "⚠️ Many files changed ($CHANGED_FILES files)"
+            echo "Ensure all changes are related and necessary"
+          else
+            echo "✅ File count is reasonable ($CHANGED_FILES files)"
+          fi
+
+  pr-validation-summary:
+    name: PR Validation Summary
+    runs-on: ubuntu-latest
+    needs: [pr-metadata, change-analysis, conflict-check, size-check]
+    if: always()
+    
+    steps:
+      - name: Generate validation summary
+        run: |
+          echo "## 🔍 Pull Request Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Validation Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          # PR metadata status
+          if [[ "${{ needs.pr-metadata.result }}" == "success" ]]; then
+            echo "| Metadata Validation | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Metadata Validation | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Change analysis status
+          if [[ "${{ needs.change-analysis.result }}" == "success" ]]; then
+            echo "| Change Analysis | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Change Analysis | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Conflict check status
+          if [[ "${{ needs.conflict-check.result }}" == "success" ]]; then
+            echo "| Conflict Check | ✅ No conflicts |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Conflict Check | ❌ Conflicts detected |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Size check status
+          if [[ "${{ needs.size-check.result }}" == "success" ]]; then
+            echo "| Size Validation | ✅ Appropriate |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Size Validation | ⚠️ Review needed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🎯 **PR validation completed**" >> $GITHUB_STEP_SUMMARY

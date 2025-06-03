@@ -1,0 +1,159 @@
+name: 🤖 AI Enhancement Request
+description: Request new AI-powered features or improvements using GitHub Models
+title: "[AI] "
+labels: ["enhancement", "ai-enhancement", "github-models"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🤖 AI Enhancement Request
+        
+        Use this template to request new AI-powered features or improvements to our GitHub Models integration.
+
+  - type: dropdown
+    id: enhancement-type
+    attributes:
+      label: Enhancement Type
+      description: What type of AI enhancement are you requesting?
+      options:
+        - New BDUF Analysis Tool
+        - Code Review Improvement
+        - Documentation Generation
+        - Workflow Automation
+        - Prompt Optimization
+        - Model Selection
+        - Performance Optimization
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ai-category
+    attributes:
+      label: AI Category
+      description: Which area of our AI integration does this relate to?
+      options:
+        - Requirements Analysis
+        - Architecture Generation
+        - Risk Assessment
+        - Technology Evaluation
+        - Security Review
+        - Performance Analysis
+        - Architecture Compliance
+        - API Documentation
+        - Changelog Generation
+        - Multi-Model Comparison
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-situation
+    attributes:
+      label: Current Situation
+      description: Describe the current state and what could be improved
+      placeholder: |
+        Example: Currently, our security reviews only check for common vulnerabilities, 
+        but we need more comprehensive analysis including enterprise security patterns...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed AI Solution
+      description: Describe how AI/GitHub Models could address this need
+      placeholder: |
+        Example: Create a new prompt that analyzes code for enterprise security patterns,
+        integrates with our compliance requirements, and provides specific remediation steps...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: suggested-model
+    attributes:
+      label: Suggested AI Model
+      description: Which model do you think would work best for this task?
+      options:
+        - "anthropic/claude-3-sonnet (balanced, large context)"
+        - "anthropic/claude-3-opus (complex reasoning)"
+        - "openai/gpt-4 (precise analysis)"
+        - "openai/gpt-3.5-turbo (cost-effective)"
+        - "Multiple models for comparison"
+        - "Not sure / need guidance"
+    validations:
+      required: false
+
+  - type: textarea
+    id: success-criteria
+    attributes:
+      label: Success Criteria
+      description: How will we know this enhancement is successful?
+      placeholder: |
+        Example:
+        - Reduces manual security review time by 50%
+        - Catches 95% of enterprise security pattern violations
+        - Provides actionable remediation steps
+        - Integrates seamlessly with existing workflow
+    validations:
+      required: true
+
+  - type: textarea
+    id: example-input-output
+    attributes:
+      label: Example Input/Output
+      description: Provide an example of what input the AI would receive and what output you'd expect
+      placeholder: |
+        Input: TypeScript code with authentication logic
+        Expected Output: Analysis of security patterns, compliance with enterprise standards, specific recommendations...
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: integration-points
+    attributes:
+      label: Integration Points
+      description: Where should this AI enhancement integrate?
+      options:
+        - label: GitHub Actions workflow
+        - label: CLI commands (npm run ai:*)
+        - label: Copilot integration
+        - label: Manual prompt usage
+        - label: Documentation generation
+        - label: Code review process
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority Level
+      description: How important is this enhancement?
+      options:
+        - "🔥 Critical - Blocks development productivity"
+        - "🚀 High - Significant productivity improvement"
+        - "📈 Medium - Nice to have improvement"
+        - "💡 Low - Future enhancement idea"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other context, screenshots, links, or examples that would help
+      placeholder: |
+        - Links to related documentation
+        - Examples from other projects
+        - Specific use cases or scenarios
+        - Performance requirements
+        - Security considerations
+
+  - type: checkboxes
+    id: implementation-help
+    attributes:
+      label: Implementation
+      description: Are you willing to help implement this enhancement?
+      options:
+        - label: I can help write the prompt
+        - label: I can help test the implementation
+        - label: I can help write documentation
+        - label: I can provide example data/scenarios
+        - label: I need someone else to implement this

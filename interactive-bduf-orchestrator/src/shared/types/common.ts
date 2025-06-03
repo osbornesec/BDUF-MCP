@@ -106,6 +106,8 @@ export interface ErrorInfo {
   details?: Metadata;
   severity: ErrorSeverity;
   timestamp: Date;
+  correlationId?: string;
+  category?: string;
 }
 
 export interface SuccessResponse<T = unknown> {
@@ -119,6 +121,7 @@ export interface ErrorResponse {
   success: false;
   error: ErrorInfo;
   requestId?: string;
+  correlationId?: string;
 }
 
 export type ApiResponse<T = unknown> = SuccessResponse<T> | ErrorResponse;

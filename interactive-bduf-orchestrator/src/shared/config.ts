@@ -201,3 +201,15 @@ export class ConfigManager {
     return this.config.server.nodeEnv === 'test';
   }
 }
+
+// Global configuration instance
+const configManager = new ConfigManager();
+
+// Export convenience function
+export async function loadConfig(): Promise<AppConfig> {
+  await configManager.load();
+  return configManager.getConfig();
+}
+
+// Export singleton instance
+export { configManager as config };

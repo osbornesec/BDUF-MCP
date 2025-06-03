@@ -1,0 +1,667 @@
+// Interactive BDUF Orchestrator Database Schema
+// Enterprise-grade multi-tenant architecture with comprehensive audit trails
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// TENANT & ORGANIZATION MANAGEMENT (Multi-tenant Foundation)
+// =============================================================================
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  domain      String?  @unique
+  plan        Plan     @default(STARTER)
+  status      OrgStatus @default(ACTIVE)
+  settings    Json     @default("{}")
+  
+  // Billing & Subscription
+  subscriptionId     String?
+  subscriptionStatus SubscriptionStatus @default(TRIAL)
+  trialEndsAt       DateTime?
+  billingEmail      String?
+  
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  
+  // Relations
+  users         OrganizationUser[]
+  projects      Project[]
+  aiUsage       AIUsageRecord[]
+  
+  @@map("organizations")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  emailVerified DateTime?
+  name          String?
+  avatar        String?
+  timezone      String   @default("UTC")
+  
+  // Authentication
+  passwordHash  String?
+  lastLoginAt   DateTime?
+  loginCount    Int      @default(0)
+  
+  // Profile & Preferences
+  preferences   Json     @default("{}")
+  settings      Json     @default("{}")
+  
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  
+  // Relations
+  organizations    OrganizationUser[]
+  createdProjects  Project[]
+  projectMembers   ProjectMember[]
+  sessions         Session[]
+  auditLogs        AuditLog[]
+  
+  @@map("users")
+}
+
+model OrganizationUser {
+  id     String @id @default(cuid())
+  role   OrgRole @default(MEMBER)
+  status UserStatus @default(ACTIVE)
+  
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  invitedBy String?
+  joinedAt  DateTime @default(now())
+  
+  @@unique([organizationId, userId])
+  @@map("organization_users")
+}
+
+// =============================================================================
+// PROJECT MANAGEMENT & BDUF WORKFLOWS
+// =============================================================================
+
+model Project {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  slug        String
+  status      ProjectStatus @default(PLANNING)
+  priority    Priority    @default(MEDIUM)
+  
+  // BDUF Methodology Fields
+  methodology     String      @default("BDUF")
+  phase           ProjectPhase @default(REQUIREMENTS)
+  complexity      Complexity  @default(MEDIUM)
+  estimatedHours  Int?
+  actualHours     Int?
+  
+  // Project Configuration
+  settings        Json        @default("{}")
+  metadata        Json        @default("{}")
+  tags            String[]    @default([])
+  
+  // Dates & Timeline
+  startDate       DateTime?
+  endDate         DateTime?
+  deadline        DateTime?
+  
+  // Relations
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById     String
+  createdBy       User @relation(fields: [createdById], references: [id])
+  
+  // Project Data
+  members         ProjectMember[]
+  requirements    Requirement[]
+  architectures   Architecture[]
+  analyses        Analysis[]
+  collaborations  CollaborationSession[]
+  documents       Document[]
+  aiInteractions  AIInteraction[]
+  
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  
+  @@unique([organizationId, slug])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id     String @id @default(cuid())
+  role   ProjectRole @default(VIEWER)
+  permissions Json @default("[]")
+  
+  // Relations
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  addedBy   String?
+  
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+// =============================================================================
+// BDUF ANALYSIS & REQUIREMENTS
+// =============================================================================
+
+model Requirement {
+  id          String @id @default(cuid())
+  title       String
+  description String
+  type        RequirementType
+  priority    Priority @default(MEDIUM)
+  status      RequirementStatus @default(DRAFT)
+  
+  // BDUF Analysis
+  source      String?
+  rationale   String?
+  acceptance  String?
+  dependencies String[]
+  
+  // Traceability
+  parentId    String?
+  parent      Requirement? @relation("RequirementHierarchy", fields: [parentId], references: [id])
+  children    Requirement[] @relation("RequirementHierarchy")
+  
+  // AI Enhancement
+  aiGenerated Boolean @default(false)
+  aiConfidence Float?
+  aiMetadata  Json    @default("{}")
+  
+  // Relations
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String
+  
+  @@map("requirements")
+}
+
+model Architecture {
+  id          String @id @default(cuid())
+  name        String
+  description String
+  type        ArchitectureType
+  status      ArchStatus @default(PROPOSED)
+  
+  // Architecture Details
+  diagram     String?      // URL or base64 encoded diagram
+  components  Json         @default("[]")
+  patterns    String[]     @default([])
+  technologies Json        @default("{}")
+  
+  // Analysis & Metrics
+  complexity     Complexity @default(MEDIUM)
+  estimatedCost  Float?
+  riskScore      Float?
+  maintainability Float?
+  scalability    Float?
+  
+  // AI Enhancement
+  aiGenerated    Boolean @default(false)
+  aiRecommendations Json @default("[]")
+  
+  // Relations
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String
+  
+  @@map("architectures")
+}
+
+model Analysis {
+  id          String @id @default(cuid())
+  type        AnalysisType
+  title       String
+  description String?
+  status      AnalysisStatus @default(IN_PROGRESS)
+  
+  // Analysis Content
+  methodology String
+  findings    Json    @default("{}")
+  recommendations Json @default("[]")
+  riskAssessment Json @default("{}")
+  
+  // AI Enhancement
+  aiModels    String[] @default([])
+  aiPrompts   Json     @default("[]")
+  confidence  Float?
+  
+  // Relations
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  completedAt DateTime?
+  createdBy String
+  
+  @@map("analyses")
+}
+
+// =============================================================================
+// REAL-TIME COLLABORATION
+// =============================================================================
+
+model CollaborationSession {
+  id          String @id @default(cuid())
+  name        String
+  type        CollabType
+  status      CollabStatus @default(ACTIVE)
+  
+  // Session Configuration
+  settings    Json @default("{}")
+  permissions Json @default("{}")
+  
+  // WebSocket & Real-time
+  roomId      String @unique
+  activeUsers Json @default("[]")
+  
+  // Relations
+  projectId   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  // Session Data
+  documents   Document[]
+  messages    CollaborationMessage[]
+  
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  endedAt   DateTime?
+  createdBy String
+  
+  @@map("collaboration_sessions")
+}
+
+model CollaborationMessage {
+  id        String @id @default(cuid())
+  content   String
+  type      MessageType @default(TEXT)
+  metadata  Json @default("{}")
+  
+  // Relations
+  sessionId String
+  session   CollaborationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  // Audit fields
+  createdAt DateTime @default(now())
+  sentBy    String
+  editedAt  DateTime?
+  
+  @@map("collaboration_messages")
+}
+
+model Document {
+  id          String @id @default(cuid())
+  title       String
+  content     String
+  type        DocumentType
+  version     Int @default(1)
+  status      DocStatus @default(DRAFT)
+  
+  // Document Metadata
+  format      String @default("markdown")
+  size        Int?
+  checksum    String?
+  
+  // Operational Transform
+  operations  Json @default("[]")
+  lastOpId    String?
+  
+  // Relations
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sessionId   String?
+  session     CollaborationSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  
+  // Version History
+  parentId    String?
+  parent      Document? @relation("DocumentVersions", fields: [parentId], references: [id])
+  versions    Document[] @relation("DocumentVersions")
+  
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String
+  
+  @@map("documents")
+}
+
+// =============================================================================
+// AI & MCP INTEGRATION
+// =============================================================================
+
+model AIInteraction {
+  id          String @id @default(cuid())
+  type        AIInteractionType
+  model       String
+  prompt      String
+  response    String?
+  status      AIStatus @default(PENDING)
+  
+  // AI Metadata
+  tokens      Json @default("{}")
+  cost        Float?
+  duration    Int?     // milliseconds
+  confidence  Float?
+  
+  // Context & Parameters
+  context     Json @default("{}")
+  parameters  Json @default("{}")
+  
+  // Relations
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  
+  // Audit fields
+  createdAt DateTime @default(now())
+  completedAt DateTime?
+  createdBy String
+  
+  @@map("ai_interactions")
+}
+
+model AIUsageRecord {
+  id          String @id @default(cuid())
+  model       String
+  operation   String
+  
+  // Usage Metrics
+  inputTokens  Int
+  outputTokens Int
+  totalTokens  Int
+  cost         Float
+  duration     Int? // milliseconds
+  
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Audit fields
+  createdAt DateTime @default(now())
+  userId    String
+  
+  @@map("ai_usage_records")
+}
+
+// =============================================================================
+// AUTHENTICATION & SESSIONS
+// =============================================================================
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  data      Json     @default("{}")
+  
+  // Relations
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Audit fields
+  createdAt DateTime @default(now())
+  lastUsed  DateTime @default(now())
+  userAgent String?
+  ipAddress String?
+  
+  @@map("sessions")
+}
+
+// =============================================================================
+// AUDIT & COMPLIANCE
+// =============================================================================
+
+model AuditLog {
+  id          String @id @default(cuid())
+  action      String
+  resource    String
+  resourceId  String?
+  details     Json @default("{}")
+  
+  // Request Context
+  userAgent   String?
+  ipAddress   String?
+  sessionId   String?
+  
+  // Relations
+  userId      String?
+  user        User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  // Timestamp
+  createdAt DateTime @default(now())
+  
+  @@map("audit_logs")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum Plan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+  CUSTOM
+}
+
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MANAGER
+  MEMBER
+  GUEST
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+  DELETED
+}
+
+enum ProjectRole {
+  OWNER
+  MANAGER
+  DEVELOPER
+  ANALYST
+  VIEWER
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+  ARCHIVED
+}
+
+enum ProjectPhase {
+  REQUIREMENTS
+  ANALYSIS
+  ARCHITECTURE
+  DESIGN
+  IMPLEMENTATION
+  TESTING
+  DEPLOYMENT
+  MAINTENANCE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum Complexity {
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}
+
+enum RequirementType {
+  FUNCTIONAL
+  NON_FUNCTIONAL
+  BUSINESS
+  TECHNICAL
+  CONSTRAINT
+  ASSUMPTION
+}
+
+enum RequirementStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  REJECTED
+  IMPLEMENTED
+  TESTED
+  DEPRECATED
+}
+
+enum ArchitectureType {
+  SYSTEM
+  APPLICATION
+  DATA
+  SECURITY
+  INFRASTRUCTURE
+  INTEGRATION
+}
+
+enum ArchStatus {
+  PROPOSED
+  REVIEW
+  APPROVED
+  REJECTED
+  IMPLEMENTED
+  DEPRECATED
+}
+
+enum AnalysisType {
+  REQUIREMENTS
+  ARCHITECTURE
+  RISK
+  COMPLIANCE
+  PERFORMANCE
+  SECURITY
+  COST
+  FEASIBILITY
+}
+
+enum AnalysisStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum CollabType {
+  DOCUMENT
+  WHITEBOARD
+  MEETING
+  REVIEW
+  PLANNING
+}
+
+enum CollabStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+  ARCHIVED
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
+  AI_RESPONSE
+}
+
+enum DocumentType {
+  REQUIREMENT
+  ARCHITECTURE
+  ANALYSIS
+  MEETING_NOTES
+  SPECIFICATION
+  REPORT
+  DIAGRAM
+}
+
+enum DocStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  ARCHIVED
+  DEPRECATED
+}
+
+enum AIInteractionType {
+  REQUIREMENTS_ANALYSIS
+  ARCHITECTURE_GENERATION
+  RISK_ASSESSMENT
+  CODE_REVIEW
+  DOCUMENTATION
+  CHAT
+}
+
+enum AIStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
