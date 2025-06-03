@@ -81,7 +81,14 @@
     "version:minor": "npm version minor && npm run changelog",
     "version:major": "npm version major && npm run changelog",
     "precommit": "lint-staged",
-    "prepush": "npm run type-check && npm run test:unit"
+    "prepush": "npm run type-check && npm run test:unit",
+    "ai:setup": "gh extension install github/gh-models || echo 'Extension already installed'",
+    "ai:models": "gh models list",
+    "ai:review": "git diff | gh models run --file .github/prompts/code-review/security-review.prompt.yml --variable code_diff=-",
+    "ai:requirements": "gh models run --file .github/prompts/bduf-analysis/requirements-analysis.prompt.yml",
+    "ai:architecture": "gh models run --file .github/prompts/bduf-analysis/architecture-generation.prompt.yml",
+    "ai:risk": "gh models run --file .github/prompts/bduf-analysis/risk-assessment.prompt.yml",
+    "ai:docs": "find src -name '*.ts' -path '*/routes/*' -exec cat {} \\; | gh models run --file .github/prompts/documentation/api-doc-generation.prompt.yml --variable typescript_code=-"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

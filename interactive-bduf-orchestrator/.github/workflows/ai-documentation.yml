@@ -1,0 +1,170 @@
+name: 📚 AI Documentation Updates
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/**/*.ts'
+      - 'docs/**'
+  pull_request:
+    branches: [main]
+    types: [closed]
+    paths:
+      - 'src/**/*.ts'
+
+permissions:
+  contents: write
+  models: read
+  pull-requests: write
+
+jobs:
+  update-api-docs:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event.pull_request.merged == true)
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Install GitHub CLI Models extension
+        run: |
+          gh extension install github/gh-models || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Extract API changes
+        id: api-changes
+        run: |
+          # Find TypeScript files with API routes or endpoints
+          find src -name "*.ts" -type f \( -path "*/routes/*" -o -path "*/controllers/*" -o -path "*/api/*" \) > api-files.txt
+          
+          if [ -s api-files.txt ]; then
+            # Combine relevant API files
+            echo "Found API files to document:"
+            cat api-files.txt
+            
+            # Create combined context (limit size)
+            > api-code.txt
+            while IFS= read -r file; do
+              echo "// File: $file" >> api-code.txt
+              head -c 5000 "$file" >> api-code.txt
+              echo -e "\n\n" >> api-code.txt
+            done < api-files.txt
+            
+            echo "api_changes_found=true" >> $GITHUB_OUTPUT
+          else
+            echo "api_changes_found=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate API Documentation
+        if: steps.api-changes.outputs.api_changes_found == 'true'
+        run: |
+          echo "Generating API documentation..."
+          
+          # Get existing API docs for context
+          EXISTING_DOCS=""
+          if [ -f "docs/api/README.md" ]; then
+            EXISTING_DOCS=$(cat docs/api/README.md)
+          fi
+          
+          # Generate updated documentation
+          gh models run --file .github/prompts/documentation/api-doc-generation.prompt.yml \
+            --variable typescript_code="$(cat api-code.txt)" \
+            --variable existing_docs="$EXISTING_DOCS" \
+            --variable api_context="Interactive BDUF Orchestrator MCP Server API" > new-api-docs.md
+          
+          # Ensure docs directory exists
+          mkdir -p docs/api
+          
+          # Update the API documentation
+          mv new-api-docs.md docs/api/README.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Changelog Entry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          # Get recent commits for changelog
+          COMMITS=$(git log --oneline -10 --no-merges)
+          
+          # Get recent PR information if available
+          PRS=$(gh pr list --state merged --limit 10 --json title,body,number | jq -r '.[] | "#\(.number): \(.title)"' || echo "")
+          
+          # Get current version from package.json
+          VERSION=$(node -p "require('./package.json').version")
+          
+          # Generate changelog entry
+          gh models run --file .github/prompts/documentation/changelog-generation.prompt.yml \
+            --variable git_commits="$COMMITS" \
+            --variable pull_requests="$PRS" \
+            --variable version_info="v$VERSION" \
+            --variable previous_changelog="$(head -c 5000 CHANGELOG.md 2>/dev/null || echo '')" > new-changelog-entry.md
+          
+          # Prepend to existing changelog
+          if [ -f CHANGELOG.md ]; then
+            (cat new-changelog-entry.md; echo ""; cat CHANGELOG.md) > CHANGELOG.tmp
+            mv CHANGELOG.tmp CHANGELOG.md
+          else
+            mv new-changelog-entry.md CHANGELOG.md
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for documentation changes
+        id: doc-changes
+        run: |
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No documentation changes to commit"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Documentation changes detected"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit documentation updates
+        if: steps.doc-changes.outputs.has_changes == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          git add docs/ CHANGELOG.md
+          git commit -m "📚 Auto-update documentation
+
+          🤖 Generated with GitHub Models
+          
+          - Updated API documentation
+          - Generated changelog entries
+          - Synchronized with code changes"
+          
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create documentation PR comment
+        if: github.event_name == 'pull_request' && steps.doc-changes.outputs.has_changes == 'true'
+        run: |
+          echo "## 📚 Documentation Updates" > doc-update-comment.md
+          echo "" >> doc-update-comment.md
+          echo "This PR includes automatic documentation updates:" >> doc-update-comment.md
+          echo "" >> doc-update-comment.md
+          echo "- ✅ API documentation updated" >> doc-update-comment.md
+          echo "- ✅ Changelog entry generated" >> doc-update-comment.md
+          echo "" >> doc-update-comment.md
+          echo "*Generated automatically by GitHub Models*" >> doc-update-comment.md
+          
+          gh pr comment ${{ github.event.number }} --body-file doc-update-comment.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

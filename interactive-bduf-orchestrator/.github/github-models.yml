@@ -1,0 +1,147 @@
+# GitHub Models Configuration for Interactive BDUF Orchestrator
+# This file documents our AI model usage strategy and configurations
+
+organization:
+  name: "Interactive BDUF Orchestrator"
+  models_enabled: true
+  
+# Model Selection Strategy
+model_preferences:
+  
+  # BDUF Analysis Tasks
+  requirements_analysis:
+    primary: "anthropic/claude-3-sonnet"
+    fallback: "openai/gpt-4"
+    reason: "Large context window for complex requirements, detailed reasoning"
+    
+  architecture_generation:
+    primary: "anthropic/claude-3-opus"
+    fallback: "anthropic/claude-3-sonnet"
+    reason: "Complex system design reasoning, architectural thinking"
+    
+  risk_assessment:
+    primary: "openai/gpt-4"
+    fallback: "anthropic/claude-3-sonnet"
+    reason: "Structured analysis, systematic risk evaluation"
+    
+  technology_evaluation:
+    primary: "anthropic/claude-3-sonnet"
+    fallback: "openai/gpt-4"
+    reason: "Balanced technical knowledge, cost-effective"
+
+  # Code Review Tasks
+  security_review:
+    primary: "openai/gpt-4"
+    fallback: "anthropic/claude-3-sonnet"
+    reason: "Precise vulnerability detection, security expertise"
+    
+  performance_review:
+    primary: "openai/gpt-4"
+    fallback: "anthropic/claude-3-sonnet"
+    reason: "Algorithm analysis, optimization recommendations"
+    
+  architecture_compliance:
+    primary: "anthropic/claude-3-sonnet"
+    fallback: "openai/gpt-4"
+    reason: "Pattern recognition, architectural consistency"
+
+  # Documentation Tasks
+  api_documentation:
+    primary: "anthropic/claude-3-sonnet"
+    fallback: "openai/gpt-4"
+    reason: "Clear technical writing, comprehensive documentation"
+    
+  changelog_generation:
+    primary: "openai/gpt-4"
+    fallback: "anthropic/claude-3-sonnet"
+    reason: "Concise summaries, structured format"
+
+# Usage Guidelines
+usage_guidelines:
+  
+  # Security Considerations
+  security:
+    - "Never include sensitive data (API keys, passwords) in prompts"
+    - "Review AI-generated security recommendations before implementation"
+    - "Use GitHub's secure model routing (data stays in GitHub/Azure)"
+    - "Enable audit logging for all model usage"
+  
+  # Cost Optimization
+  cost_optimization:
+    - "Use smaller models for routine tasks (summaries, simple analysis)"
+    - "Use premium models (GPT-4, Claude Opus) for complex reasoning"
+    - "Implement prompt caching for repeated operations"
+    - "Monitor usage through GitHub's billing dashboard"
+  
+  # Quality Assurance
+  quality:
+    - "Always review AI-generated code before merging"
+    - "Use evaluation metrics for prompt optimization"
+    - "Version control all prompts for reproducibility"
+    - "Test prompts with multiple models for comparison"
+
+# Integration Points
+integrations:
+  
+  # GitHub Copilot
+  copilot:
+    multi_model_enabled: true
+    preferred_models:
+      - "anthropic/claude-3-sonnet" # For complex explanations
+      - "openai/gpt-4" # For code generation
+    usage: "Enhanced code assistance with model choice flexibility"
+  
+  # CI/CD Workflows
+  github_actions:
+    permissions:
+      models: "read"
+      contents: "read"
+      pull_requests: "write"
+    rate_limits:
+      daily_requests: 1000
+      concurrent_requests: 10
+  
+  # External Tools
+  coderabbit:
+    relationship: "complement"
+    usage: "CodeRabbit for general review, GitHub Models for BDUF-specific analysis"
+
+# Prompt Library Structure
+prompt_library:
+  location: ".github/prompts/"
+  categories:
+    - "bduf-analysis/"     # BDUF methodology specific prompts
+    - "code-review/"       # Code quality and compliance prompts  
+    - "documentation/"     # Documentation generation prompts
+  versioning: "Git-based versioning with prompt files"
+  review_process: "Pull request review for prompt changes"
+
+# Evaluation Strategy
+evaluation:
+  metrics:
+    - "Response accuracy and relevance"
+    - "Cost per operation"
+    - "Processing time and latency"
+    - "Developer satisfaction scores"
+  
+  testing:
+    - "A/B testing between models for same tasks"
+    - "Benchmark prompts for consistent evaluation"
+    - "Regular review of model performance"
+    - "Feedback collection from development team"
+
+# Migration Strategy
+migration:
+  current_phase: "Setup and Initial Integration"
+  next_phases:
+    - "Prompt optimization and evaluation"
+    - "Team training and adoption"
+    - "Scale-up and Azure migration for production"
+  
+  azure_migration:
+    timeline: "6 months for production workloads"
+    reasoning: "GitHub Models for development, Azure for production scale"
+    benefits:
+      - "Enterprise SLA and support"
+      - "Dedicated capacity and performance"
+      - "Enhanced security and compliance"
